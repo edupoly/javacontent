@@ -565,6 +565,69 @@ public String registerStudent(
 }
 ```
 
+#### Worked Example: Greatest of Two Numbers with a POST Form
+
+Query-string values and fields submitted by a standard HTML form are both request parameters in Spring MVC. Therefore, both can be accessed with `@RequestParam`.
+
+Their usual locations are different:
+
+| Request | Where the parameters are sent | Spring annotation |
+| --- | --- | --- |
+| `GET /web/mul?a=10&b=20` | In the URL query string after `?` | `@RequestParam` |
+| A standard `POST` form | In the request body as form-encoded data | `@RequestParam` |
+| A `POST` request containing JSON | In the request body as JSON | `@RequestBody` |
+
+Create `src/main/resources/templates/Greatest.html`:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Find Greatest Number</title>
+</head>
+<body>
+    <h1>Find the Greatest Number</h1>
+
+    <form action="/web/greatest" method="post">
+        <label for="a">First number:</label>
+        <input id="a" type="number" name="a" required>
+
+        <label for="b">Second number:</label>
+        <input id="b" type="number" name="b" required>
+
+        <button type="submit">Find Greatest</button>
+    </form>
+</body>
+</html>
+```
+
+Add the GET and POST handler methods to a controller whose class-level mapping is `@RequestMapping("/web")`:
+
+```java
+@GetMapping("/greatest")
+public String showGreatestForm() {
+    return "Greatest";
+}
+
+@PostMapping("/greatest")
+@ResponseBody
+public int findGreatest(
+        @RequestParam int a,
+        @RequestParam int b) {
+    return Math.max(a, b);
+}
+```
+
+Open `http://localhost:8080/web/greatest` to display the form. When the form is submitted, the browser sends values similar to `a=10&b=20` in the POST request body. Spring matches the HTML `name` attributes to the Java parameters:
+
+```text
+name="a"  →  @RequestParam int a
+name="b"  →  @RequestParam int b
+```
+
+`@ResponseBody` writes the result of `Math.max(a, b)` directly into the HTTP response. If both inputs are equal, that same value is returned.
+
 ### D. Complete form binding with @ModelAttribute
 
 When a form contains many related fields, Spring can create a Java object and bind matching form values to its properties. The class needs a no-argument constructor plus getters and setters.
