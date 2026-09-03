@@ -628,6 +628,22 @@ name="b"  →  @RequestParam int b
 
 `@ResponseBody` writes the result of `Math.max(a, b)` directly into the HTTP response. If both inputs are equal, that same value is returned.
 
+#### Serving the Form Without a GET Controller
+
+Spring Boot serves files placed in `src/main/resources/static` directly. If `Greatest.html` contains only regular HTML and does not need Thymeleaf processing, it can be placed here:
+
+```text
+src/main/resources/static/Greatest.html
+```
+
+It is then available without a GET handler at:
+
+```text
+http://localhost:8080/Greatest.html
+```
+
+The static form can still submit to the POST handler at `/web/greatest`. Files under `src/main/resources/templates`, by contrast, are intended for server-side template processing and normally need a controller method that returns the template name. Use `static` for plain HTML, CSS, and JavaScript; use `templates` when the page needs Thymeleaf features such as `th:text`, `th:if`, `th:each`, model values, or `th:action`.
+
 ### D. Complete form binding with @ModelAttribute
 
 When a form contains many related fields, Spring can create a Java object and bind matching form values to its properties. The class needs a no-argument constructor plus getters and setters.
@@ -666,6 +682,92 @@ public Student createStudent(@RequestBody Student student) {
     return student;
 }
 ```
+
+#### Worked Example: Sending JSON with `fetch`
+
+The following JavaScript prevents the form's normal submission and sends the two input values as JSON:
+
+```javascript
+function divide(event) {
+    event.preventDefault();
+
+    fetch("http://localhost:8080/web/div", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            a: Number(document.dform.a.value),
+            b: Number(document.dform.b.value)
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error("Request failed: " + response.status);
+        }
+        return response.json();
+    })
+    .then(result => console.log(result))
+    .catch(error => console.error(error));
+}
+```
+
+`Content-Type: application/json` tells Spring that the request body contains JSON rather than form-encoded parameters. A request from this example has a body like:
+
+```json
+{
+  "a": 20,
+  "b": 4
+}
+```
+
+Create a Java type whose structure matches those JSON properties:
+
+```java
+package com.example.demo;
+
+public record NumberInput(double a, double b) {
+}
+```
+
+Then receive it with `@RequestBody`:
+
+```java
+@PostMapping("/div")
+@ResponseBody
+public double divide(@RequestBody NumberInput input) {
+    return input.a() / input.b();
+}
+```
+
+Jackson reads the JSON and creates a `NumberInput` value. It maps JSON property `a` to record component `a` and JSON property `b` to record component `b`.
+
+`NumberInput` is not a Java or Spring keyword. It is a developer-chosen type name and can be renamed, for example:
+
+```java
+public record CalculationRequest(double a, double b) {
+}
+```
+
+If the type is renamed, the controller parameter type must also be changed:
+
+```java
+public double divide(@RequestBody CalculationRequest input) {
+    return input.a() / input.b();
+}
+```
+
+The individual parts have these roles:
+
+| Part | Role |
+| --- | --- |
+| `record` | Java keyword for declaring a compact data-carrier class |
+| `NumberInput` | Developer-chosen type name |
+| `double a, double b` | Record components that match the JSON properties |
+| `@RequestBody` | Tells Spring/Jackson to convert the JSON body into the declared Java type |
+| `input` | Developer-chosen method-parameter name |
+
+A standard HTML form submission such as `a=20&b=4` uses `@RequestParam`. A JSON body such as `{"a":20,"b":4}` uses `@RequestBody`. Serve the HTML through Spring—for example, from `src/main/resources/static`—instead of opening it through a `file://` URL, which can lead to browser-origin restrictions.
 
 ### F. Request headers with @RequestHeader
 
