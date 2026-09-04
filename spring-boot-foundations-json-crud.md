@@ -1,5 +1,4 @@
-SPRING BOOT
-FOUNDATIONS
+# Spring Boot Foundations
 
 A project-based beginner tutorial for Java full-stack students
 
@@ -8,6 +7,21 @@ Build a REST endpoint, render Thymeleaf pages, understand request data, and comp
 CONCEPTS  →  PROJECT SETUP  →  MVC  →  DYNAMIC DATA  →  LIST FEATURES  →  ERROR HANDLING
 
 Classroom Edition
+
+
+# Learning Path
+
+Read the material in this order:
+
+1. **Spring ecosystem foundations** — understand Spring Framework, Spring Boot, Maven, Tomcat, and the request-response flow.
+2. **Spring Boot project setup** — generate, run, and configure the application.
+3. **Spring MVC foundations** — controllers, mappings, response bodies, templates, models, and request data.
+4. **Small classroom examples** — addition, multiplication, greatest number, form submission, static HTML, and JSON `fetch` requests.
+5. **Student Directory project** — objects, Thymeleaf, JSON reading, sorting, searching, pagination, forms, and CRUD.
+6. **Todo JSON CRUD project** — writable file storage, Lombok, `ObjectMapper`, DTOs, create, read, update, and delete.
+7. **Reference material and next steps** — annotations, vocabulary, debugging, testing, and later database refactoring.
+
+The examples deliberately progress from a single controller method to a complete CRUD application. Finish each stage before introducing a database or advanced architecture.
 
 # How to Use This Tutorial
 
@@ -50,8 +64,29 @@ Maven: The build and dependency tool that downloads libraries, compiles code, ru
 
 Tomcat: The embedded servlet container that receives HTTP requests and runs the web application.
 
-| M |
-| --- |
+The important distinction is that Spring MVC is a module inside Spring Framework, while Spring Boot is a separate Spring project that configures Spring Framework modules conveniently.
+
+```text
+Spring ecosystem
+├── Spring Framework
+│   ├── Spring Core and dependency injection
+│   ├── Spring MVC for servlet-based web applications
+│   ├── Spring WebFlux for reactive web applications
+│   ├── Spring JDBC and ORM integration
+│   ├── transaction management
+│   ├── aspect-oriented programming
+│   └── testing support
+├── Spring Boot for setup, auto-configuration, starters, and embedded servers
+├── Spring Data for database access
+├── Spring Security for authentication and authorization
+├── Spring Cloud for distributed systems and microservices
+├── Spring Batch for high-volume batch jobs
+└── Spring Integration and messaging projects
+```
+
+Most work in this tutorial belongs to Spring MVC: controllers, URL mappings, request parameters, path variables, request bodies, response bodies, HTTP methods, status codes, and Thymeleaf view selection. Spring Boot starts and configures the application; Jackson handles JSON; Thymeleaf renders server-side HTML; Lombok generates Java boilerplate.
+
+**Mental model:** Spring Framework provides the engine and components. Spring Boot assembles and configures them. Spring MVC handles web requests inside that application.
 
 ## 1.2 What Happens When a Request Arrives?
 
@@ -286,6 +321,147 @@ public class WebController {
 - The fallback text “Guest” and “1” remains visible when the file is opened directly.
 - When accessed through Spring Boot, Thymeleaf replaces the fallback text with Model values.
 - Model keys are case-sensitive: username and userName are different keys.
+
+# Current Classroom Example: Controller Paths and Development Reloading
+
+This section records the follow-up discussion based on the current `com.example.demo` project.
+
+## Combining Class and Method Mappings
+
+A class-level `@RequestMapping` supplies the common prefix for every handler method in that controller. The method-level mapping is appended to it.
+
+```java
+@Controller
+@RequestMapping("/web")
+public class HelloController {
+
+    @GetMapping("/home")
+    public String hello() {
+        return "Hello";
+    }
+}
+```
+
+The final URL is:
+
+```text
+http://localhost:8080/web/home
+```
+
+Spring interprets the returned string `"Hello"` as the name of the Thymeleaf template `src/main/resources/templates/Hello.html`.
+
+## Path Variables
+
+A path variable reads a dynamic value embedded in the URL path. In this example, `{a}` and `{b}` are placeholders:
+
+```java
+@GetMapping("/add/{a}/{b}")
+@ResponseBody
+public int addition(
+        @PathVariable("a") int x,
+        @PathVariable("b") int y) {
+    return x + y;
+}
+```
+
+Calling the following URL binds `10` to `x` and `20` to `y`:
+
+```text
+http://localhost:8080/web/add/10/20
+```
+
+The response is:
+
+```text
+30
+```
+
+The names in `@PathVariable` must match the placeholders in `@GetMapping`. The Java parameter names do not have to match when the placeholder name is given explicitly:
+
+```java
+@PathVariable("a") int x
+```
+
+Here, Spring reads `{a}` and stores its converted integer value in `x`. If the annotation value is omitted, using matching names is clearest:
+
+```java
+@GetMapping("/add/{a}/{b}")
+public int addition(@PathVariable int a, @PathVariable int b) {
+    return a + b;
+}
+```
+
+Explicit names are safer when the URI placeholder and Java parameter use different names or when parameter-name metadata is unavailable at runtime.
+
+## Why `@ResponseBody` Is Required Here
+
+Methods in a class annotated with `@Controller` normally return a view name:
+
+```java
+@GetMapping("/home")
+public String hello() {
+    return "Hello";
+}
+```
+
+Spring looks for a Thymeleaf template named `Hello.html`.
+
+The addition method returns response data rather than a template name. `@ResponseBody` tells Spring to write that return value directly into the HTTP response:
+
+```java
+@GetMapping("/add/{a}/{b}")
+@ResponseBody
+public int addition(@PathVariable("a") int x,
+                    @PathVariable("b") int y) {
+    return x + y;
+}
+```
+
+The distinction is:
+
+| Controller setup | Meaning of a returned value |
+| --- | --- |
+| `@Controller` without `@ResponseBody` | A view or template name |
+| `@Controller` with `@ResponseBody` on a method | Data written directly to the response |
+| `@RestController` | Every handler method returns response data by default |
+
+Keep `@Controller` for a mixed controller that renders Thymeleaf pages and returns data from only selected methods. Changing the class to `@RestController` would cause strings such as `"Hello"` to appear as plain text instead of rendering `Hello.html`.
+
+## Avoiding Manual Restarts During Development
+
+Add Spring Boot DevTools as a runtime dependency:
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-devtools</artifactId>
+    <scope>runtime</scope>
+    <optional>true</optional>
+</dependency>
+```
+
+Use these development settings in `src/main/resources/application.properties`:
+
+```properties
+spring.application.name=demo
+spring.thymeleaf.cache=false
+spring.devtools.restart.enabled=true
+spring.devtools.livereload.enabled=true
+```
+
+Start the application once on Windows:
+
+```powershell
+.\mvnw.cmd spring-boot:run
+```
+
+- After changing a Thymeleaf template or static resource, save it and refresh the browser. Disabling the Thymeleaf cache allows the saved template to be read again.
+- After changing Java code, save and compile it. DevTools detects the changed classpath and restarts the application context automatically.
+- A LiveReload browser extension can refresh the browser automatically when the embedded LiveReload server reports a change.
+- In VS Code, use the Extension Pack for Java and enable automatic saving. In IntelliJ IDEA, enable automatic project building while the application is running.
+
+DevTools performs an automatic application-context restart for compiled Java changes. It removes the need to stop and manually launch the server again, although it is not the same as replacing every Java class in place without a restart.
+
 # Module 7 — Render a List of Student Objects
 
 ## 7.1 Create Student.java
@@ -1728,228 +1904,6 @@ Sort disappears: Preserve sort, dir, and search in links and hidden form fields.
 - How does ${student.fullName} connect to Java code?
 - Why does the details route need a stable studentId?
 - Which responsibilities should eventually move out of the controller?
-# Appendix A — Final Project Structure
-
-**Final structure**
-
-```
-demo/
-├── pom.xml
-├── mvnw
-├── mvnw.cmd
-└── src/main/
-    ├── java/com/student/demo/
-    │   ├── DemoApplication.java
-    │   ├── HelloController.java
-    │   ├── Student.java
-    │   └── WebController.java
-    └── resources/
-        ├── application.properties
-        ├── students.json
-        └── templates/
-            ├── home.html
-            ├── studentlist.html
-            ├── studentdetails.html
-            └── error/
-                ├── 404.html
-                └── error.html
-```
-
-# Appendix B — Annotation Reference
-
-| Annotation | Purpose |
-| --- | --- |
-| @Controller | Marks a server-rendered MVC controller. |
-| @RestController | Marks a controller whose return values become response bodies. |
-| @RequestMapping | Defines a base path or general request mapping. |
-| @GetMapping | Maps HTTP GET requests. |
-| @RequestParam | Reads a query parameter. |
-
-# Appendix C — Key Vocabulary
-
-Dependency: A library required by the application.
-
-Starter: A curated Spring Boot dependency bundle.
-
-Auto-configuration: Spring Boot configuration inferred from dependencies and application context.
-
-Controller: A class that handles web requests.
-
-Model: Data made available to a template.
-
-Template: Server-side HTML containing expressions and attributes.
-
-Query parameter: A key-value value in the URL after ?.
-
-POJO: A simple Java object used to represent data.
-
-Jackson: The JSON serialization and deserialization library used by Spring Boot.
-
-Pagination: Dividing a result into pages.
-
-## Form and CRUD Vocabulary
-
-Data binding: Matching submitted request field names to Java object properties and converting values to Java types.
-
-th:object: Selects the object that a Thymeleaf form is bound to.
-
-th:field: Connects one form control to one property of the selected form object.
-
-@ModelAttribute: Creates or receives an object whose properties are populated from request parameters.
-
-Client-side validation: Browser checks such as required, minlength, min, and max before submission.
-
-Server-side validation: Java checks performed after the request reaches the application.
-
-Redirect: A response that instructs the browser to send a new request to another URL.
-
-CRUD: Create, Read, Update, and Delete operations.
-
-Writable JSON file: An external file such as data/students.json that the running application can modify.
-
-# Source and Editing Note
-
-This classroom edition was reorganized from the supplied Gemini learning conversation and the subsequent Spring MVC teaching discussion. The document deliberately presents a controller-first JSON CRUD implementation so students can understand request-response flow before architectural best practices are introduced.
-
-# Current Classroom Example: Controller Paths and Development Reloading
-
-This section records the follow-up discussion based on the current `com.example.demo` project.
-
-## Combining Class and Method Mappings
-
-A class-level `@RequestMapping` supplies the common prefix for every handler method in that controller. The method-level mapping is appended to it.
-
-```java
-@Controller
-@RequestMapping("/web")
-public class HelloController {
-
-    @GetMapping("/home")
-    public String hello() {
-        return "Hello";
-    }
-}
-```
-
-The final URL is:
-
-```text
-http://localhost:8080/web/home
-```
-
-Spring interprets the returned string `"Hello"` as the name of the Thymeleaf template `src/main/resources/templates/Hello.html`.
-
-## Path Variables
-
-A path variable reads a dynamic value embedded in the URL path. In this example, `{a}` and `{b}` are placeholders:
-
-```java
-@GetMapping("/add/{a}/{b}")
-@ResponseBody
-public int addition(
-        @PathVariable("a") int x,
-        @PathVariable("b") int y) {
-    return x + y;
-}
-```
-
-Calling the following URL binds `10` to `x` and `20` to `y`:
-
-```text
-http://localhost:8080/web/add/10/20
-```
-
-The response is:
-
-```text
-30
-```
-
-The names in `@PathVariable` must match the placeholders in `@GetMapping`. The Java parameter names do not have to match when the placeholder name is given explicitly:
-
-```java
-@PathVariable("a") int x
-```
-
-Here, Spring reads `{a}` and stores its converted integer value in `x`. If the annotation value is omitted, using matching names is clearest:
-
-```java
-@GetMapping("/add/{a}/{b}")
-public int addition(@PathVariable int a, @PathVariable int b) {
-    return a + b;
-}
-```
-
-Explicit names are safer when the URI placeholder and Java parameter use different names or when parameter-name metadata is unavailable at runtime.
-
-## Why `@ResponseBody` Is Required Here
-
-Methods in a class annotated with `@Controller` normally return a view name:
-
-```java
-@GetMapping("/home")
-public String hello() {
-    return "Hello";
-}
-```
-
-Spring looks for a Thymeleaf template named `Hello.html`.
-
-The addition method returns response data rather than a template name. `@ResponseBody` tells Spring to write that return value directly into the HTTP response:
-
-```java
-@GetMapping("/add/{a}/{b}")
-@ResponseBody
-public int addition(@PathVariable("a") int x,
-                    @PathVariable("b") int y) {
-    return x + y;
-}
-```
-
-The distinction is:
-
-| Controller setup | Meaning of a returned value |
-| --- | --- |
-| `@Controller` without `@ResponseBody` | A view or template name |
-| `@Controller` with `@ResponseBody` on a method | Data written directly to the response |
-| `@RestController` | Every handler method returns response data by default |
-
-Keep `@Controller` for a mixed controller that renders Thymeleaf pages and returns data from only selected methods. Changing the class to `@RestController` would cause strings such as `"Hello"` to appear as plain text instead of rendering `Hello.html`.
-
-## Avoiding Manual Restarts During Development
-
-Add Spring Boot DevTools as a runtime dependency:
-
-```xml
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-devtools</artifactId>
-    <scope>runtime</scope>
-    <optional>true</optional>
-</dependency>
-```
-
-Use these development settings in `src/main/resources/application.properties`:
-
-```properties
-spring.application.name=demo
-spring.thymeleaf.cache=false
-spring.devtools.restart.enabled=true
-spring.devtools.livereload.enabled=true
-```
-
-Start the application once on Windows:
-
-```powershell
-.\mvnw.cmd spring-boot:run
-```
-
-- After changing a Thymeleaf template or static resource, save it and refresh the browser. Disabling the Thymeleaf cache allows the saved template to be read again.
-- After changing Java code, save and compile it. DevTools detects the changed classpath and restarts the application context automatically.
-- A LiveReload browser extension can refresh the browser automatically when the embedded LiveReload server reports a change.
-- In VS Code, use the Extension Pack for Java and enable automatic saving. In IntelliJ IDEA, enable automatic project building while the application is running.
-
-DevTools performs an automatic application-context restart for compiled Java changes. It removes the need to stop and manually launch the server again, although it is not the same as replacing every Java class in place without a restart.
 
 # Current Classroom Example: Todo List with a Writable JSON File
 
@@ -2209,6 +2163,94 @@ The `.map(ResponseEntity::ok)` call is an `Optional.map()` operation, not Jackso
 
 `ResponseEntity` is not required merely to return a Todo, but it lets the controller accurately represent different outcomes. A found Todo returns `200 OK`; a missing ID returns `404 Not Found` instead of an ambiguous empty `200 OK` response.
 
+## Update a Todo
+
+Use `PUT` when the client sends the complete set of editable Todo values. Keep the identity in the path and do not accept a replacement ID from the request body:
+
+```java
+package com.example.demo;
+
+public record TodoUpdateReq(
+        String title,
+        String description,
+        boolean completed
+) {}
+```
+
+The endpoint finds the Todo, changes the mutable Lombok object, persists the list, and returns the updated object:
+
+```java
+@PutMapping("/todos/{id}")
+@ResponseBody
+public ResponseEntity<Todo> updateTodo(
+        @PathVariable int id,
+        @RequestBody TodoUpdateReq request) {
+
+    List<Todo> todos = readTodos();
+
+    return todos.stream()
+            .filter(todo -> todo.getId() == id)
+            .findFirst()
+            .map(todo -> {
+                todo.setTitle(request.title());
+                todo.setDescription(request.description());
+                todo.setCompleted(request.completed());
+
+                writeTodos(todos);
+                return ResponseEntity.ok(todo);
+            })
+            .orElseGet(() -> ResponseEntity.notFound().build());
+}
+```
+
+Add the import:
+
+```java
+import org.springframework.web.bind.annotation.PutMapping;
+```
+
+Example browser request:
+
+```javascript
+function updateTodo(id) {
+    fetch(`/web/todos/${id}`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            title: "Learn Spring Boot CRUD",
+            description: "Complete the update operation",
+            completed: true
+        })
+    })
+    .then(response => {
+        if (response.status === 404) {
+            throw new Error("Todo not found");
+        }
+        if (!response.ok) {
+            throw new Error("Unable to update Todo");
+        }
+        return response.json();
+    })
+    .then(todo => console.log("Updated:", todo))
+    .catch(error => console.error(error));
+}
+```
+
+### Why Both `filter()` and `map()` Appear
+
+The operations have different responsibilities:
+
+```text
+filter()     → selects the Todo whose ID matches
+findFirst()  → produces Optional<Todo>
+map()        → updates the found Todo and creates the success response
+orElseGet()  → creates the 404 response when nothing matched
+```
+
+`map()` alone does not search for one Todo; a stream `map()` transforms every element. With an immutable record, transforming the complete list can be useful because the matching record must be replaced with a new value. With the current mutable Lombok class, finding one Todo and updating it through setters is clearer.
+
 ## Delete a Todo
 
 Use HTTP DELETE and return `204 No Content` when removal succeeds:
@@ -2285,3 +2327,86 @@ writeTodos(todos);
 ```
 
 `removeIf()` deletes the matching object only from the in-memory list. `writeTodos()` makes that change persistent by overwriting `todos.json` with the updated list. The returned boolean is `true` when an item matched and `false` when the ID was not found.
+
+# Appendix A — Final Project Structure
+
+**Final structure**
+
+```
+demo/
+├── pom.xml
+├── mvnw
+├── mvnw.cmd
+└── src/main/
+    ├── java/com/student/demo/
+    │   ├── DemoApplication.java
+    │   ├── HelloController.java
+    │   ├── Student.java
+    │   └── WebController.java
+    └── resources/
+        ├── application.properties
+        ├── students.json
+        └── templates/
+            ├── home.html
+            ├── studentlist.html
+            ├── studentdetails.html
+            └── error/
+                ├── 404.html
+                └── error.html
+```
+
+# Appendix B — Annotation Reference
+
+| Annotation | Purpose |
+| --- | --- |
+| @Controller | Marks a server-rendered MVC controller. |
+| @RestController | Marks a controller whose return values become response bodies. |
+| @RequestMapping | Defines a base path or general request mapping. |
+| @GetMapping | Maps HTTP GET requests. |
+| @RequestParam | Reads a query parameter. |
+
+# Appendix C — Key Vocabulary
+
+Dependency: A library required by the application.
+
+Starter: A curated Spring Boot dependency bundle.
+
+Auto-configuration: Spring Boot configuration inferred from dependencies and application context.
+
+Controller: A class that handles web requests.
+
+Model: Data made available to a template.
+
+Template: Server-side HTML containing expressions and attributes.
+
+Query parameter: A key-value value in the URL after ?.
+
+POJO: A simple Java object used to represent data.
+
+Jackson: The JSON serialization and deserialization library used by Spring Boot.
+
+Pagination: Dividing a result into pages.
+
+## Form and CRUD Vocabulary
+
+Data binding: Matching submitted request field names to Java object properties and converting values to Java types.
+
+th:object: Selects the object that a Thymeleaf form is bound to.
+
+th:field: Connects one form control to one property of the selected form object.
+
+@ModelAttribute: Creates or receives an object whose properties are populated from request parameters.
+
+Client-side validation: Browser checks such as required, minlength, min, and max before submission.
+
+Server-side validation: Java checks performed after the request reaches the application.
+
+Redirect: A response that instructs the browser to send a new request to another URL.
+
+CRUD: Create, Read, Update, and Delete operations.
+
+Writable JSON file: An external file such as data/students.json that the running application can modify.
+
+# Source and Editing Note
+
+This classroom edition was reorganized from the supplied Gemini learning conversation and the subsequent Spring MVC teaching discussion. The document deliberately presents a controller-first JSON CRUD implementation so students can understand request-response flow before architectural best practices are introduced.
