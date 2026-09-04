@@ -1950,3 +1950,338 @@ Start the application once on Windows:
 - In VS Code, use the Extension Pack for Java and enable automatic saving. In IntelliJ IDEA, enable automatic project building while the application is running.
 
 DevTools performs an automatic application-context restart for compiled Java changes. It removes the need to stop and manually launch the server again, although it is not the same as replacing every Java class in place without a restart.
+
+# Current Classroom Example: Todo List with a Writable JSON File
+
+This example implements Todo CRUD without a database. The application reads and writes an external JSON file using Jackson.
+
+## Todo File Location
+
+Create the writable file at the project root, outside `src/main/resources`:
+
+```text
+demo/
+├── data/
+│   └── todos.json
+├── src/
+└── pom.xml
+```
+
+Start it with an empty JSON array:
+
+```json
+[]
+```
+
+Reference it with:
+
+```java
+private final File todoFile = new File("data/todos.json");
+```
+
+This is a relative path, resolved from the application's working directory. When the project runs from `C:\spring4`, it refers to `C:\spring4\data\todos.json`, not `C:\spring4\src\data\todos.json`. To diagnose path confusion, print:
+
+```java
+System.out.println(todoFile.getAbsolutePath());
+```
+
+Use `src/main/resources` for read-only packaged data. Use an external `data` directory when create, update, or delete operations must persist while the application runs.
+
+## Create the `Todo` Type with Lombok
+
+`List<Todo>` requires a Java type describing one item. For mutable CRUD data, a regular class with Lombok-generated constructors, getters, and setters is convenient:
+
+```java
+package com.example.demo;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class Todo {
+    private int id;
+    private String title;
+    private boolean completed;
+    private String description;
+}
+```
+
+Add Lombok to `pom.xml`:
+
+```xml
+<dependency>
+    <groupId>org.projectlombok</groupId>
+    <artifactId>lombok</artifactId>
+    <optional>true</optional>
+</dependency>
+```
+
+A Java record can also represent a Todo:
+
+```java
+public record Todo(
+        int id,
+        String title,
+        boolean completed,
+        String description
+) {}
+```
+
+Records are not limited to reading data. Jackson can deserialize JSON into records and serialize records back to JSON. Records are immutable, however, so an update creates a new record instead of calling setters. A mutable Lombok class is often easier for an introductory CRUD exercise.
+
+## Role of `ObjectMapper`
+
+`ObjectMapper` converts between JSON and Java objects:
+
+```text
+todos.json
+    ↓ readValue()
+List<Todo>
+    ↓ Java add/update/delete operations
+List<Todo>
+    ↓ writeValue()
+todos.json
+```
+
+Declare it once in the controller:
+
+```java
+private final ObjectMapper mapper = new ObjectMapper();
+```
+
+In Spring Boot 4 with Jackson 3, the imports are:
+
+```java
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+```
+
+## Reusable Read and Write Helpers
+
+Use one helper to load the complete JSON array and another to persist the modified list:
+
+```java
+private List<Todo> readTodos() {
+    try {
+        if (!todoFile.exists()) {
+            todoFile.getParentFile().mkdirs();
+            mapper.writerWithDefaultPrettyPrinter()
+                    .writeValue(todoFile, new ArrayList<Todo>());
+        }
+
+        return mapper.readValue(
+                todoFile,
+                new TypeReference<List<Todo>>() {}
+        );
+    } catch (Exception e) {
+        throw new RuntimeException("Unable to read todos.json", e);
+    }
+}
+
+private void writeTodos(List<Todo> todos) {
+    try {
+        mapper.writerWithDefaultPrettyPrinter()
+                .writeValue(todoFile, todos);
+    } catch (Exception e) {
+        throw new RuntimeException("Unable to write todos.json", e);
+    }
+}
+```
+
+`TypeReference<List<Todo>>` tells Jackson that the root JSON array contains `Todo` objects. `writerWithDefaultPrettyPrinter()` makes the saved file readable but does not change its data.
+
+## Read All Todos
+
+```java
+@GetMapping("/todos")
+@ResponseBody
+public List<Todo> getAllTodos() {
+    return readTodos();
+}
+```
+
+Request:
+
+```text
+GET http://localhost:8080/web/todos
+```
+
+If the response is `[]`, the endpoint is working but the file being read contains an empty JSON array. Check the absolute path and edit `data/todos.json` at the project root.
+
+## Add a Todo
+
+The client supplies only fields it is allowed to choose:
+
+```java
+package com.example.demo;
+
+public record TodoPostReq(String title, String description) {}
+```
+
+The server generates the ID and initial completion state:
+
+```java
+@PostMapping("/addTodo")
+@ResponseBody
+public Todo addTodoItem(@RequestBody TodoPostReq request) {
+    List<Todo> todos = readTodos();
+
+    int newId = todos.stream()
+            .mapToInt(Todo::getId)
+            .max()
+            .orElse(0) + 1;
+
+    Todo newTodo = new Todo(
+            newId,
+            request.title(),
+            false,
+            request.description()
+    );
+
+    todos.add(newTodo);
+    writeTodos(todos);
+    return newTodo;
+}
+```
+
+Use the maximum existing ID plus one. `todos.size() + 1` can create a duplicate ID after an item has been deleted.
+
+The browser can submit JSON with:
+
+```javascript
+function addTodo(event) {
+    event.preventDefault();
+
+    fetch("/web/addTodo", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            title: document.todoform.title.value,
+            description: document.todoform.description.value
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error("Unable to add todo");
+        }
+        return response.json();
+    })
+    .then(todo => {
+        console.log("Added:", todo);
+        document.todoform.reset();
+    })
+    .catch(error => console.error(error));
+}
+```
+
+Use `.value` to send the entered text rather than the HTML input element itself. Returning the created `Todo` provides JSON for `response.json()`; a `void` controller response has no JSON body to parse.
+
+## Read One Todo by ID
+
+`ObjectMapper` converts the entire JSON array into `List<Todo>`. Java then searches that list because a plain JSON file cannot perform a database-style indexed query.
+
+```java
+@GetMapping("/todos/{id}")
+@ResponseBody
+public ResponseEntity<Todo> getTodoById(@PathVariable int id) {
+    return readTodos().stream()
+            .filter(todo -> todo.getId() == id)
+            .findFirst()
+            .map(ResponseEntity::ok)
+            .orElseGet(() -> ResponseEntity.notFound().build());
+}
+```
+
+Request Todo 2 with:
+
+```text
+GET http://localhost:8080/web/todos/2
+```
+
+The `.map(ResponseEntity::ok)` call is an `Optional.map()` operation, not Jackson's `ObjectMapper`.
+
+`ResponseEntity` is not required merely to return a Todo, but it lets the controller accurately represent different outcomes. A found Todo returns `200 OK`; a missing ID returns `404 Not Found` instead of an ambiguous empty `200 OK` response.
+
+## Delete a Todo
+
+Use HTTP DELETE and return `204 No Content` when removal succeeds:
+
+```java
+@DeleteMapping("/todos/{id}")
+@ResponseBody
+public ResponseEntity<Void> deleteTodo(@PathVariable int id) {
+    List<Todo> todos = readTodos();
+
+    boolean removed = todos.removeIf(
+            todo -> todo.getId() == id
+    );
+
+    if (!removed) {
+        return ResponseEntity.notFound().build();
+    }
+
+    writeTodos(todos);
+    return ResponseEntity.noContent().build();
+}
+```
+
+Required imports include:
+
+```java
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+```
+
+Browser JavaScript can call the endpoint with:
+
+```javascript
+function deleteTodo(id) {
+    fetch(`/web/todos/${id}`, {
+        method: "DELETE"
+    })
+    .then(response => {
+        if (response.status === 204) {
+            console.log("Todo deleted");
+            return;
+        }
+
+        if (response.status === 404) {
+            throw new Error("Todo not found");
+        }
+
+        throw new Error("Unable to delete todo");
+    })
+    .catch(error => console.error(error));
+}
+```
+
+Do not call `response.json()` for a `204 No Content` response because it intentionally has no body.
+
+### Common Delete Bug: Modifying a Different List
+
+This code does not persist the removal:
+
+```java
+List<Todo> todos = readTodos();
+boolean removed = readTodos().removeIf(todo -> todo.getId() == id);
+writeTodos(todos);
+```
+
+The first call produces one list, while the second call reads a separate list. The second list is modified, but the unchanged first list is written back to the file.
+
+All operations must use the same list instance:
+
+```java
+List<Todo> todos = readTodos();
+boolean removed = todos.removeIf(todo -> todo.getId() == id);
+writeTodos(todos);
+```
+
+`removeIf()` deletes the matching object only from the in-memory list. `writeTodos()` makes that change persistent by overwriting `todos.json` with the updated list. The returned boolean is `true` when an item matched and `false` when the ID was not found.
