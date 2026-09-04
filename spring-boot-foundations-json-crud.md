@@ -95,11 +95,373 @@ Most work in this tutorial belongs to Spring MVC: controllers, URL mappings, req
 1. Spring MVC finds the controller method whose mapping matches the URL.
 1. The controller returns either response data or a template name.
 1. For a template, Thymeleaf renders HTML and the server sends it to the browser.
+
+## 1.3 Servlet Foundations Behind Spring MVC
+
+Spring MVC is built on the Jakarta Servlet API. A servlet is a Java component that receives an HTTP request and produces an HTTP response. A servlet container such as Tomcat creates and manages servlet objects, listens for network requests, and calls the appropriate servlet method.
+
+Spring MVC saves application developers from writing a separate low-level servlet for every URL. Nevertheless, servlet concepts remain underneath controllers, filters, sessions, multipart uploads, Spring Security, and the entire request lifecycle.
+
+### A Request Without Spring MVC
+
+A traditional servlet can handle a URL directly:
+
+```java
+package com.example.demo;
+
+import java.io.IOException;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+@WebServlet("/hello")
+public class HelloServlet extends HttpServlet {
+
+    @Override
+    protected void doGet(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws ServletException, IOException {
+
+        response.setContentType("text/plain");
+        response.getWriter().write("Hello");
+    }
+}
+```
+
+This servlet manually handles several responsibilities:
+
+- It declares the URL mapping.
+- It overrides `doGet()` for the HTTP GET method.
+- It reads values from `HttpServletRequest`.
+- It chooses the response content type.
+- It writes content through `HttpServletResponse`.
+- It must deal with conversion errors and exceptions.
+
+The equivalent Spring MVC endpoint is much smaller:
+
+```java
+@RestController
+public class HelloController {
+
+    @GetMapping("/hello")
+    public String hello() {
+        return "Hello";
+    }
+}
+```
+
+The servlet infrastructure has not disappeared. Spring MVC is using it on behalf of the controller.
+
+### Tomcat Is the Servlet Container
+
+Tomcat provides the runtime environment for servlet-based web applications. Its responsibilities include:
+
+- Opening the configured HTTP port, such as `8080`.
+- Accepting browser and API-client connections.
+- Creating `HttpServletRequest` and `HttpServletResponse` objects.
+- Managing servlet initialization and destruction.
+- Assigning request-processing threads.
+- Managing low-level session and cookie support.
+- Passing matching requests to Spring MVC's servlet.
+
+When the MVC web starter is present, Spring Boot configures and starts an embedded servlet container. This is why a Spring Boot application can run through its `main()` method without installing and deploying to a separate Tomcat server.
+
+```text
+Spring Boot
+    ↓ starts and configures
+Embedded Tomcat
+    ↓ hosts
+Spring MVC DispatcherServlet
+    ↓ delegates to
+Application controllers
+```
+
+### `DispatcherServlet`: Spring MVC's Front Controller
+
+Spring MVC normally routes web requests through one central servlet named `DispatcherServlet`. This design is called the **front controller pattern**: a single entry point coordinates request processing and delegates application work to controller methods.
+
+```text
+Browser or API client
+        ↓ HTTP request
+Embedded Tomcat
+        ↓
+Filters
+        ↓
+DispatcherServlet
+        ↓
+HandlerMapping selects a controller method
+        ↓
+HandlerAdapter invokes that method
+        ↓
+Argument resolvers prepare method arguments
+        ↓
+Controller performs application work
+        ↓
+HttpMessageConverter or ViewResolver handles the return value
+        ↓
+HTTP response
+```
+
+Important participants are:
+
+- `HandlerMapping`: finds the handler whose annotations match the request method and path.
+- `HandlerAdapter`: invokes the selected controller method.
+- Argument resolvers: create values for `@PathVariable`, `@RequestParam`, `@RequestBody`, and other controller arguments.
+- `HttpMessageConverter`: converts response objects to formats such as JSON and converts request bodies from JSON into Java objects.
+- `ViewResolver`: locates a server-side view such as a Thymeleaf template.
+- Exception resolvers: convert exceptions into error views or HTTP error responses.
+
+Application controllers do not normally call these components. Spring MVC coordinates them automatically.
+
+### Following a Todo Request Through the Servlet Stack
+
+Consider:
+
+```java
+@GetMapping("/todos/{id}")
+public ResponseEntity<Todo> getTodo(@PathVariable int id) {
+    // Find and return the Todo
+}
+```
+
+For `GET /web/todos/2`, the processing sequence is:
+
+1. Tomcat receives the HTTP request and creates servlet request and response objects.
+2. A servlet filter chain runs.
+3. `DispatcherServlet` receives the request.
+4. Spring combines the class-level and method-level mappings and selects `getTodo()`.
+5. A Spring MVC argument resolver extracts `2` from the path.
+6. Spring's conversion system changes the text `"2"` into an `int`.
+7. Spring invokes `getTodo(2)`.
+8. The controller returns `ResponseEntity<Todo>`.
+9. Jackson, through an HTTP message converter, serializes the Todo into JSON.
+10. Spring applies the status and headers from `ResponseEntity`.
+11. Tomcat sends the completed HTTP response to the client.
+
+### Spring MVC Annotations and Their Servlet Foundations
+
+Spring MVC provides higher-level annotations over common servlet operations:
+
+| Spring MVC feature | Underlying web or servlet operation |
+| --- | --- |
+| `@GetMapping` | Handle an HTTP GET request |
+| `@PostMapping` | Handle an HTTP POST request |
+| `@PutMapping` | Handle an HTTP PUT request |
+| `@DeleteMapping` | Handle an HTTP DELETE request |
+| `@RequestParam` | Read a query or form parameter, similar to `request.getParameter()` |
+| `@PathVariable` | Extract a value from a mapped URL path |
+| `@RequestHeader` | Read a header, similar to `request.getHeader()` |
+| `@CookieValue` | Read a cookie carried by the request |
+| `@RequestBody` | Read and convert the raw request body |
+| `@ResponseBody` | Serialize and write a return value into the response body |
+| `ResponseEntity` | Control response status, headers, and body |
+| `MultipartFile` | Work with servlet multipart upload data |
+| `HttpSession` | Access the servlet-managed user session |
+
+For example, this Spring MVC method:
+
+```java
+@PostMapping("/greatest")
+@ResponseBody
+public int greatest(
+        @RequestParam int a,
+        @RequestParam int b) {
+    return Math.max(a, b);
+}
+```
+
+replaces low-level work similar to:
+
+```java
+int a = Integer.parseInt(request.getParameter("a"));
+int b = Integer.parseInt(request.getParameter("b"));
+int greatest = Math.max(a, b);
+
+response.setContentType("text/plain");
+response.getWriter().write(String.valueOf(greatest));
+```
+
+Spring additionally performs argument conversion, mapping validation, return-value handling, and consistent error processing.
+
+### Request Parameters Versus the Request Body
+
+The servlet request contains several distinct sources of information:
+
+```text
+GET /todos?page=2
+           └── query parameter
+
+POST form body: title=Learn+Spring
+                └── form parameter
+
+POST JSON body: {"title":"Learn Spring"}
+                └── raw request body
+```
+
+Query parameters and form-encoded values can be obtained with `@RequestParam`. JSON is raw structured request-body content and is normally converted with `@RequestBody` and Jackson.
+
+Reading the raw request body is generally a one-time stream operation. Spring's message-conversion system manages that stream and produces the Java object requested by the controller.
+
+### Servlet Filters
+
+A servlet filter can inspect or modify a request and response before or after `DispatcherServlet` runs:
+
+```text
+Request
+   ↓
+Filter 1 → Filter 2 → DispatcherServlet → Controller
+   ↑                                      ↓
+Response ← Filter 2 ←─────────────────────┘
+```
+
+Common filter responsibilities include:
+
+- Authentication and security checks
+- CORS handling
+- Request and response logging
+- Request identifiers for tracing
+- Header modification
+- Compression and encoding
+
+In Spring applications, `OncePerRequestFilter` is a convenient base class:
+
+```java
+@Component
+public class RequestLoggingFilter extends OncePerRequestFilter {
+
+    @Override
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+
+        System.out.println(
+                request.getMethod() + " " + request.getRequestURI()
+        );
+
+        filterChain.doFilter(request, response);
+    }
+}
+```
+
+Calling `filterChain.doFilter()` is essential because it passes control to the next filter and eventually to `DispatcherServlet`. Spring Security is largely implemented as a chain of servlet filters.
+
+### Filters Versus Spring MVC Interceptors
+
+Filters belong to the Servlet API and run outside Spring MVC's controller-processing layer. Interceptors belong to Spring MVC and run around controller-handler execution.
+
+| Filter | Handler interceptor |
+| --- | --- |
+| Works at the servlet-container level | Works inside Spring MVC |
+| Runs before `DispatcherServlet` | Runs after Spring has selected a handler |
+| Can wrap or replace request and response objects | Can inspect the selected controller handler |
+| Suitable for security, CORS, encoding, and low-level logging | Suitable for controller timing, auditing, and MVC-specific checks |
+
+The main interceptor callbacks are:
+
+```java
+preHandle()
+postHandle()
+afterCompletion()
+```
+
+### Request Scope, Sessions, and Cookies
+
+HTTP is stateless: one request does not automatically remember a previous request. Servlets provide mechanisms for request-scoped and session-scoped state.
+
+- Request attributes exist for only one request.
+- Cookies are small values stored by the browser and returned in later requests.
+- `HttpSession` stores server-side data associated with a session identifier, commonly carried in a `JSESSIONID` cookie.
+
+Example session access:
+
+```java
+@GetMapping("/visit")
+@ResponseBody
+public String visit(HttpSession session) {
+    Integer count = (Integer) session.getAttribute("count");
+    count = count == null ? 1 : count + 1;
+    session.setAttribute("count", count);
+    return "Visit count: " + count;
+}
+```
+
+Do not store large amounts of data or request-specific temporary state in a session. REST APIs are commonly designed to remain stateless.
+
+### Forward Versus Redirect
+
+A forward continues processing on the server using the same request and response. The browser is not asked to make another request, so its displayed URL does not change.
+
+A redirect sends a redirect status and location to the browser. The browser then makes a new request:
+
+```java
+return "redirect:/web/todos";
+```
+
+```text
+POST /web/todos
+      ↓ server returns redirect
+GET /web/todos
+      ↓ browser makes a fresh request
+Todo list page
+```
+
+Redirecting after a successful form POST prevents a browser refresh from accidentally repeating the submission. This is known as the Post/Redirect/Get pattern.
+
+### Thread Safety in Controllers and Servlets
+
+Tomcat can process many requests concurrently. Spring controllers are singleton objects by default, so multiple request threads may call the same controller instance at the same time.
+
+Avoid storing request-specific mutable values in controller fields:
+
+```java
+// Unsafe: shared by multiple requests
+private int currentTodoId;
+```
+
+Method-local variables are isolated to one invocation and are safer:
+
+```java
+public Todo getTodo(@PathVariable int id) {
+    int currentTodoId = id;
+    // ...
+}
+```
+
+The file-based CRUD examples are intentionally simple, but simultaneous writes can overwrite one another. Databases and transaction management become important when applications must safely support concurrent users.
+
+### What Servlet Knowledge Is Needed for Spring MVC?
+
+You do not need to build the complete project with raw servlets first. Learn enough to explain:
+
+- What a servlet container does
+- The roles of `HttpServletRequest` and `HttpServletResponse`
+- Why `DispatcherServlet` is called a front controller
+- How filters and the filter chain work
+- How sessions and cookies preserve state
+- How forwarding differs from redirecting
+- Why controller fields must be thread-safe
+- How Spring MVC converts low-level requests into annotated method calls
+
+The central mental model is:
+
+> Servlets provide the low-level Java web foundation. Spring MVC's `DispatcherServlet` uses that foundation to provide controllers, annotations, data binding, validation, view resolution, exception handling, and automatic JSON conversion.
+
 ## Checkpoint Questions
 
 - Why is Spring Boot not a replacement for Spring?
 - What problem does the embedded server solve?
 - What jobs does Maven perform?
+- What is the responsibility of a servlet container?
+- Why is `DispatcherServlet` called a front controller?
+- How does a filter differ from a Spring MVC interceptor?
+- Why should a controller avoid request-specific mutable fields?
+- What is the difference between forwarding and redirecting?
 # Module 2 — Generate and Run the Project
 
 ## 2.1 Create the Project in VS Code
