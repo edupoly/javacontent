@@ -2690,6 +2690,700 @@ writeTodos(todos);
 
 `removeIf()` deletes the matching object only from the in-memory list. `writeTodos()` makes that change persistent by overwriting `todos.json` with the updated list. The returned boolean is `true` when an item matched and `false` when the ID was not found.
 
+# Spring Ecosystem Learning Roadmap
+
+Spring is modular. Learn the projects required for ordinary backend development first, then select specialized projects according to real application requirements. Do not try to learn every Spring project at the same time.
+
+## Current Position
+
+The material completed so far covers:
+
+- Spring Boot project generation, configuration, and embedded Tomcat
+- Servlet foundations and the Spring MVC request lifecycle
+- MVC controllers and HTTP method mappings
+- Query parameters, path variables, form data, and JSON request bodies
+- `ResponseEntity` and HTTP status codes
+- Jackson, `ObjectMapper`, and file-based JSON storage
+- Basic Thymeleaf pages and forms
+- Create, read, update, and delete operations
+
+The immediate goal is to finish the Todo application and then separate it into controller, service, and repository responsibilities.
+
+## Phase 0 — Java, HTTP, SQL, and Build Prerequisites
+
+### Java
+
+Be comfortable with:
+
+- Classes, objects, interfaces, and constructors
+- Encapsulation, inheritance, and polymorphism
+- Exceptions
+- Generics
+- `List`, `Set`, and `Map`
+- Streams, lambdas, method references, and `Optional`
+- Records and enums
+- Date and time APIs
+- Basic file handling and concurrency
+- Annotation and reflection concepts
+
+### HTTP
+
+Understand:
+
+- Requests and responses
+- HTTP methods
+- URLs, paths, and query strings
+- Headers, cookies, and sessions
+- Request bodies
+- JSON and form encoding
+- Content types
+- Status codes
+- Stateless communication
+- CORS
+- Authentication versus authorization
+
+Example request:
+
+```http
+PUT /api/todos/10
+Content-Type: application/json
+Accept: application/json
+```
+
+`Content-Type` describes the request body; `Accept` describes the response format requested by the client.
+
+### SQL
+
+Before database persistence, learn:
+
+- Tables, rows, and columns
+- Primary and foreign keys
+- `SELECT`, `INSERT`, `UPDATE`, and `DELETE`
+- Joins
+- Constraints
+- Indexes
+- Normalization
+- Transactions
+
+### Maven
+
+Understand `pom.xml`, dependencies, plugins, scopes, the build lifecycle, and the Maven Wrapper:
+
+```powershell
+.\mvnw.cmd clean
+.\mvnw.cmd test
+.\mvnw.cmd package
+.\mvnw.cmd spring-boot:run
+```
+
+**Milestone:** Build a plain Java Todo application using collections and files without Spring.
+
+## Phase 1 — Servlet Foundations
+
+Learn enough Servlet API to understand what Spring MVC abstracts:
+
+- Servlet containers and Tomcat
+- `HttpServletRequest` and `HttpServletResponse`
+- Servlet lifecycle
+- Filters and `FilterChain`
+- Sessions and cookies
+- Forward versus redirect
+- Thread-per-request processing
+- Thread safety
+- `DispatcherServlet`
+
+Do not spend months building servlet-only applications. The goal is to understand the web foundation beneath Spring MVC.
+
+**Milestone:** Create one raw servlet that accepts two parameters, calculates the greatest number, and writes the response.
+
+## Phase 2 — Spring Core
+
+Spring Core provides the IoC container and dependency injection foundation.
+
+### IoC and dependency injection
+
+Learn:
+
+- Inversion of Control
+- `ApplicationContext`
+- Spring beans
+- Component scanning
+- Constructor injection
+- Bean lifecycle
+- Circular dependency problems
+
+Important annotations include:
+
+```java
+@Component
+@Service
+@Repository
+@Configuration
+@Bean
+```
+
+Constructor injection example:
+
+```java
+@Service
+public class TodoService {
+
+    private final TodoRepository repository;
+
+    public TodoService(TodoRepository repository) {
+        this.repository = repository;
+    }
+}
+```
+
+Also learn component annotations, Java configuration with `@Bean`, and the purpose of older XML configuration. Use `@Bean` when object construction must be explicit or the class belongs to an external library.
+
+### Scopes and lifecycle
+
+Learn singleton, prototype, request, session, and application scopes, plus initialization and destruction callbacks such as `@PostConstruct` and `@PreDestroy`.
+
+### Configuration and profiles
+
+Learn:
+
+```java
+@Value
+@ConfigurationProperties
+@Profile
+```
+
+### AOP foundations
+
+Understand aspect, advice, pointcut, proxy, and the self-invocation limitation. Spring AOP supports capabilities such as:
+
+```java
+@Transactional
+@Cacheable
+@Async
+```
+
+Start by understanding proxy behavior rather than writing complex custom aspects.
+
+**Milestone:** Refactor the Todo logic into `TodoService`, a `TodoRepository` interface, and a `JsonTodoRepository` implementation connected through constructor injection.
+
+## Phase 3 — Spring Boot
+
+Learn:
+
+- `@SpringBootApplication`
+- Auto-configuration
+- Starter dependencies
+- Embedded servers
+- Component-scan boundaries
+- Executable JAR packaging
+- Properties and YAML configuration
+- Profiles
+- DevTools
+- Logging
+
+`@SpringBootApplication` combines the main ideas of:
+
+```java
+@SpringBootConfiguration
+@EnableAutoConfiguration
+@ComponentScan
+```
+
+Use environment-specific configuration:
+
+```text
+application.properties
+application-dev.properties
+application-test.properties
+application-prod.properties
+```
+
+Prefer typed configuration for related properties:
+
+```java
+@ConfigurationProperties(prefix = "todo.storage")
+public record TodoStorageProperties(Path location) {}
+```
+
+Never commit real production passwords or secrets.
+
+**Milestone:** Run the layered Todo application with a configurable JSON location, development/test profiles, logging, and executable JAR packaging.
+
+## Phase 4 — Spring MVC and REST
+
+Master:
+
+```java
+@Controller
+@RestController
+@RequestMapping
+@GetMapping
+@PostMapping
+@PutMapping
+@PatchMapping
+@DeleteMapping
+```
+
+### Request and response handling
+
+Learn:
+
+```java
+@PathVariable
+@RequestParam
+@RequestBody
+@RequestHeader
+@CookieValue
+@ModelAttribute
+@RequestPart
+MultipartFile
+@ResponseBody
+ResponseEntity
+```
+
+Also study:
+
+- Content negotiation
+- HTTP message converters
+- Jackson serialization and deserialization
+- File upload and download
+- Filters and MVC interceptors
+- Global CORS configuration
+- Pagination, sorting, filtering, and API versioning
+- Safe methods, idempotency, and HTTP caching concepts
+
+Use resource-oriented routes:
+
+```text
+POST   /api/todos
+GET    /api/todos
+GET    /api/todos/{id}
+PUT    /api/todos/{id}
+PATCH  /api/todos/{id}
+DELETE /api/todos/{id}
+```
+
+**Milestone:** Turn the Todo application into a complete REST API with correct routes, JSON bodies, status codes, and error outcomes.
+
+## Phase 5 — DTOs, Validation, and Error Handling
+
+Create separate API contracts:
+
+```text
+CreateTodoRequest
+UpdateTodoRequest
+TodoResponse
+```
+
+Do not allow clients to control server-generated values such as IDs.
+
+Learn Jakarta Bean Validation:
+
+```java
+@NotNull
+@NotBlank
+@Size
+@Min
+@Max
+@Email
+@Pattern
+@Positive
+@Past
+@Future
+@Valid
+```
+
+Example:
+
+```java
+public record CreateTodoRequest(
+        @NotBlank
+        @Size(max = 100)
+        String title,
+
+        @Size(max = 500)
+        String description
+) {}
+```
+
+Learn centralized error handling:
+
+```java
+@ControllerAdvice
+@RestControllerAdvice
+@ExceptionHandler
+@ResponseStatus
+ProblemDetail
+```
+
+Return consistent errors:
+
+```json
+{
+  "status": 404,
+  "title": "Todo not found",
+  "detail": "Todo 20 does not exist"
+}
+```
+
+**Milestone:** Add DTOs, validation, `TodoNotFoundException`, and global exception handling to the Todo API.
+
+## Phase 6 — Thymeleaf and Server-Rendered MVC
+
+Learn this phase deeply when building server-rendered websites:
+
+- Template resolution
+- `Model` and `ModelAndView`
+- `th:text`, `th:if`, and `th:each`
+- `th:href` and `th:action`
+- `th:object` and `th:field`
+- Form binding and validation messages
+- Template fragments and layouts
+- Static resources
+- Redirect and flash attributes
+- Post/Redirect/Get
+
+If a separate React or Angular frontend consumes the REST API, learn Thymeleaf fundamentals but prioritize REST.
+
+**Milestone:** Create a Thymeleaf Todo interface using the same service layer as the REST controller.
+
+## Phase 7 — Application Architecture
+
+Move from a large controller to separated responsibilities:
+
+```text
+Controller
+    ↓
+Service
+    ↓
+Repository
+    ↓
+Storage
+```
+
+Study separation of concerns, dependency inversion, domain models, DTO mapping, business rules, exceptions, transactions, and package organization.
+
+Suggested package structure:
+
+```text
+com.example.todo
+├── controller
+├── dto
+├── service
+├── repository
+├── domain
+├── exception
+└── config
+```
+
+Start with a well-structured modular monolith. Do not jump directly to microservices.
+
+## Phase 8 — JDBC, JPA, Hibernate, and Spring Data
+
+### Spring JDBC
+
+Learn `DataSource`, `JdbcTemplate`, parameter binding, row mapping, and transaction management. This reveals the SQL operations that an ORM later abstracts.
+
+### JPA and Hibernate
+
+Learn:
+
+```java
+@Entity
+@Id
+@GeneratedValue
+@Column
+@Table
+@OneToOne
+@OneToMany
+@ManyToOne
+@ManyToMany
+```
+
+Understand:
+
+- Persistence context and entity states
+- Dirty checking
+- Lazy versus eager loading
+- Cascades and orphan removal
+- JPQL and fetch joins
+- The N+1 query problem
+- Optimistic locking
+- Schema migrations with Flyway or Liquibase
+
+### Spring Data JPA
+
+Learn:
+
+```java
+JpaRepository
+Pageable
+Page
+Sort
+@Query
+```
+
+Example:
+
+```java
+public interface TodoRepository
+        extends JpaRepository<Todo, Long> {
+
+    List<Todo> findByCompleted(boolean completed);
+}
+```
+
+Use H2 for initial exercises, then PostgreSQL or MySQL for realistic development.
+
+**Milestone:** Replace `todos.json` with PostgreSQL while preserving the REST API contract.
+
+## Phase 9 — Transaction Management
+
+Learn:
+
+```java
+@Transactional
+```
+
+Understand atomicity, commit, rollback, isolation, transaction boundaries, read-only transactions, exception behavior, proxy-based transaction management, self-invocation, and lazy loading.
+
+Place business transaction boundaries primarily in the service layer:
+
+```java
+@Service
+public class TodoService {
+
+    @Transactional
+    public Todo updateTodo(...) {
+        // Perform one complete business operation
+    }
+}
+```
+
+**Milestone:** Implement an operation that modifies multiple database records atomically.
+
+## Phase 10 — Testing
+
+### Unit tests
+
+Learn JUnit, AssertJ, Mockito, stubs, mocks, and testing services without loading Spring.
+
+### MVC tests
+
+Learn:
+
+```java
+@WebMvcTest
+MockMvc
+```
+
+Test mappings, JSON conversion, validation, status codes, headers, and error responses.
+
+### Integration tests
+
+Learn:
+
+```java
+@SpringBootTest
+@DataJpaTest
+```
+
+Then study test profiles, transactional rollback, Testcontainers, database integration tests, and end-to-end tests.
+
+**Milestone:** Test valid creation, invalid input, existing and missing IDs, updates, deletion, filtering, and pagination.
+
+## Phase 11 — Spring Security
+
+Learn in this order:
+
+1. Authentication versus authorization
+2. Password hashing
+3. `SecurityFilterChain`
+4. Form login
+5. Session authentication
+6. Roles and authorities
+7. Method security
+8. CORS and CSRF
+9. JWT-based APIs
+10. OAuth 2.0 and OpenID Connect
+
+Important APIs include:
+
+```java
+UserDetailsService
+PasswordEncoder
+SecurityFilterChain
+@PreAuthorize
+```
+
+Learn normal session-based authentication before starting JWT.
+
+**Milestone:** Allow users to manage only their own Todos while administrators can manage all Todos.
+
+## Phase 12 — Production Readiness
+
+Learn:
+
+- Structured logging
+- Spring Boot Actuator
+- Health checks
+- Metrics and Micrometer
+- Environment variables and secret management
+- Graceful shutdown
+- Database connection pooling
+- Error monitoring
+- Docker
+- CI/CD
+- Reverse proxies and HTTPS
+- Performance profiling
+
+Do not expose sensitive Actuator endpoints publicly.
+
+**Milestone:** Package the Todo application with Docker, PostgreSQL, health checks, and production configuration.
+
+## Phase 13 — Common Application Capabilities
+
+Learn these when required:
+
+### Scheduling and asynchronous execution
+
+```java
+@Scheduled
+@Async
+```
+
+Study thread pools, error handling, and task cancellation.
+
+### Caching
+
+```java
+@EnableCaching
+@Cacheable
+@CachePut
+@CacheEvict
+```
+
+Start with local caching and then learn Redis.
+
+### External APIs
+
+Learn HTTP clients, timeouts, authentication headers, retries, error mapping, resilience, and client testing.
+
+### WebSockets
+
+Use WebSockets for bidirectional real-time features such as chat and live notifications.
+
+## Phase 14 — Messaging and Event-Driven Systems
+
+Choose according to project requirements:
+
+- Spring for Apache Kafka
+- Spring AMQP with RabbitMQ
+- Spring for Apache Pulsar
+- Spring Integration
+
+Learn producers, consumers, topics, queues, acknowledgements, consumer groups, retries, dead-letter queues, idempotency, eventual consistency, and the transactional outbox pattern.
+
+**Milestone:** Publish a `TodoCompleted` event and process it asynchronously to create an activity log.
+
+## Phase 15 — Optional Specializations
+
+### Spring WebFlux
+
+Use for genuinely reactive, non-blocking workloads. Learn Reactor, `Mono`, `Flux`, `WebClient`, backpressure, and R2DBC. Avoid combining blocking JPA operations carelessly with reactive request processing.
+
+### Spring Batch
+
+Use for high-volume scheduled or offline processing:
+
+```text
+ItemReader → ItemProcessor → ItemWriter
+```
+
+### Spring Cloud
+
+Learn after building and deploying a strong monolith. Topics include configuration, gateway, service discovery, circuit breakers, distributed tracing, OpenFeign, messaging, and Kubernetes integration.
+
+### Spring Modulith
+
+Use it to structure and verify a large Spring Boot monolith around domain-oriented application modules.
+
+### Other projects
+
+- Spring for GraphQL for flexible graph-shaped APIs
+- Spring AI for model clients, embeddings, vector stores, RAG, and tool calling
+- Spring gRPC for strongly typed service-to-service communication
+- Spring REST Docs for test-generated API documentation
+- Spring Session for distributed session management
+
+## Recommended Project Sequence
+
+Build these projects in order:
+
+1. JSON Todo CRUD — current project
+2. Layered Todo API — controller, service, and repository
+3. Validated Todo API — DTOs and global errors
+4. Database Todo API — JPA and PostgreSQL
+5. Tested Todo API — unit, MVC, and integration tests
+6. Secure Todo API — users, roles, and ownership
+7. Production Todo service — Actuator, Docker, and configuration
+8. E-commerce monolith — relationships and transactions
+9. Event-driven order system — Kafka or RabbitMQ
+10. Microservices system — only after mastering the monolith
+
+## Employment-Focused Priority
+
+Master these first:
+
+```text
+Java
+HTTP and SQL
+Spring Core
+Spring Boot
+Spring MVC
+REST API design
+Validation and exception handling
+Layered architecture
+Spring Data JPA
+Transactions
+Testing
+Spring Security
+Git, Docker, and PostgreSQL
+```
+
+Treat these as later specializations:
+
+```text
+WebFlux
+Spring Cloud
+Kafka
+Batch
+GraphQL
+Spring AI
+gRPC
+Kubernetes
+```
+
+## Immediate Next Steps
+
+```text
+Finish Todo update
+    ↓
+Separate TodoController
+    ↓
+Create TodoService
+    ↓
+Create JsonTodoRepository
+    ↓
+Add validation and global exception handling
+    ↓
+Write MockMvc tests
+    ↓
+Replace JSON with PostgreSQL and Spring Data JPA
+```
+
+Continue with the [official Spring Guides](https://spring.io/guides/) and the [Spring Projects catalog](https://spring.io/projects/) when beginning each new phase.
+
 # Appendix A — Final Project Structure
 
 **Final structure**
