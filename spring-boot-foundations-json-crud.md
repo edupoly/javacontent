@@ -1,31 +1,58 @@
-# Spring Boot Foundations
+# Java Web to Spring Boot — Classroom Guide
 
-A project-based beginner tutorial for Java full-stack students
+A progressive, project-based tutorial for Java full-stack students
 
-Build a REST endpoint, render Thymeleaf pages, understand request data, and complete create, read, update, and delete operations using a JSON file.
+Begin with Servlet/JSP, understand what Spring MVC abstracts, use Spring Boot to simplify configuration, and complete CRUD using JSON-file storage.
 
-CONCEPTS  →  PROJECT SETUP  →  MVC  →  DYNAMIC DATA  →  LIST FEATURES  →  ERROR HANDLING
+JAVA WEB  →  SERVLETS/JSP  →  SPRING CORE  →  SPRING MVC  →  SPRING BOOT  →  JSON CRUD
 
 Classroom Edition
 
 
 # Learning Path
 
-Read the material in this order:
+The questions that produced these notes were asked in a natural, exploratory order. The material is organized here in the order in which it should be taught:
 
-1. **Spring ecosystem foundations** — understand Spring Framework, Spring Boot, Maven, Tomcat, and the request-response flow.
-2. **Spring Boot project setup** — generate, run, and configure the application.
-3. **Spring MVC foundations** — controllers, mappings, response bodies, templates, models, and request data.
-4. **Small classroom examples** — addition, multiplication, greatest number, form submission, static HTML, and JSON `fetch` requests.
-5. **Student Directory project** — objects, Thymeleaf, JSON reading, sorting, searching, pagination, forms, and CRUD.
-6. **Todo JSON CRUD project** — writable file storage, Lombok, `ObjectMapper`, DTOs, create, read, update, and delete.
-7. **Reference material and next steps** — annotations, vocabulary, debugging, testing, and later database refactoring.
+1. **Java web foundations** — HTTP, request/response, web servers, servlet containers, WAR files, and Tomcat.
+2. **Servlet and JSP application** — manually handle requests, parameters, forwarding, JSP rendering, and deployment to external Tomcat.
+3. **Spring ecosystem and Spring Core** — understand IoC, beans, component scanning, dependency injection, and managed objects.
+4. **Spring MVC** — replace low-level servlet code with controllers, mappings, binding, models, views, and response conversion.
+5. **Spring Boot** — use starters, auto-configuration, an embedded server, executable applications, and development tools.
+6. **Small request-handling examples** — path variables, query/form parameters, static files, the greatest-number form, and JSON `fetch`.
+7. **Student Directory** — progress through objects, Thymeleaf, JSON reading, sorting, searching, pagination, forms, and CRUD.
+8. **Todo JSON CRUD** — learn `Todo`, Lombok, `ObjectMapper`, file persistence, `ResponseEntity`, and all CRUD operations.
+9. **Architecture and next steps** — separate controller/service/repository responsibilities before moving to validation, testing, databases, and security.
 
-The examples deliberately progress from a single controller method to a complete CRUD application. Finish each stage before introducing a database or advanced architecture.
+The examples deliberately progress from a single request to a complete CRUD application. Finish each stage before introducing a database or advanced architecture.
+
+## Recommended Classroom Delivery
+
+| Stage | Main question | Practical outcome |
+| --- | --- | --- |
+| 1. HTTP and Java web | What happens when a browser requests a URL? | Explain request, response, method, path, parameters, body, status, and content type. |
+| 2. Servlet/JSP | What work must Java web code perform directly? | Deploy a WAR to external Tomcat and build a file-based Todo application. |
+| 3. Spring Core | How can objects be created, connected, and managed centrally? | Use Spring beans and constructor injection. |
+| 4. Spring MVC | How does Spring simplify Servlet programming? | Build annotated controllers, REST responses, forms, and Thymeleaf views. |
+| 5. Spring Boot | How can Spring application setup be simplified? | Run the same ideas with auto-configuration and embedded Tomcat. |
+| 6. JSON CRUD | How can data survive between requests without a database? | Read and write Todos with Jackson and `ObjectMapper`. |
+| 7. Layered design | How should a growing application be organized? | Separate controller, service, repository, and storage concerns. |
+| 8. Database and production | What changes for real multi-user applications? | Add validation, tests, JPA, transactions, security, and deployment practices. |
+
+Do not introduce `@Repository`, JPA, or a database merely because they are common in Spring examples. First let students see the storage responsibility in a simple file repository; the annotation and database abstraction will then solve a problem they already understand.
+
+## Companion Projects
+
+| Approach | Repository | Runtime model |
+| --- | --- | --- |
+| Servlet and JSP | [todo-servlet-jsp](https://github.com/edupoly/todo-servlet-jsp) | WAR deployed to external Tomcat |
+| Spring MVC without Boot | [todo-spring-mvc](https://github.com/edupoly/todo-spring-mvc) | Explicit Spring MVC configuration |
+| Spring Boot | [todo-spring-boot](https://github.com/edupoly/todo-spring-boot) | Auto-configuration and embedded Tomcat |
+
+Teach the same Todo requirements in all three repositories. Students can then compare infrastructure code, routing, view rendering, object creation, deployment, and persistence without also learning a different business problem.
 
 # How to Use This Tutorial
 
-This tutorial turns one small Student Directory into a sequence of lessons. The first goal is conceptual clarity: browser request, controller mapping, Java object binding, JSON processing, Thymeleaf rendering, and browser response. Service layers, repositories, databases, DTOs, and advanced validation are intentionally postponed until after JSON CRUD is complete.
+Use the Student Directory for incremental MVC and Thymeleaf exercises. Use the Todo application as the complete CRUD case study and as the comparison between Servlet/JSP, Spring MVC, and Spring Boot. The first goal is conceptual clarity: browser request, routing, Java object binding, JSON processing, view rendering, persistence, and browser response. Service layers, repository abstractions, databases, DTOs, and advanced validation are intentionally postponed until students understand the basic flow.
 
 ## Learning Outcomes
 
@@ -101,6 +128,73 @@ Most work in this tutorial belongs to Spring MVC: controllers, URL mappings, req
 Spring MVC is built on the Jakarta Servlet API. A servlet is a Java component that receives an HTTP request and produces an HTTP response. A servlet container such as Tomcat creates and manages servlet objects, listens for network requests, and calls the appropriate servlet method.
 
 Spring MVC saves application developers from writing a separate low-level servlet for every URL. Nevertheless, servlet concepts remain underneath controllers, filters, sessions, multipart uploads, Spring Security, and the entire request lifecycle.
+
+### Servlet/JSP Project Setup with External Tomcat
+
+The Servlet/JSP comparison project is `todo-servlet-jsp`. Unlike a normal Spring Boot JAR, it is packaged as a WAR and deployed to a separately installed servlet container.
+
+#### 1. Install the prerequisites
+
+- Install JDK 17 or later and verify it with `java -version`.
+- Download the latest Tomcat 11 **Core → Windows zip** from the official Tomcat website.
+- Extract it to a simple location such as `C:\tools\apache-tomcat-11`.
+
+Tomcat 11 uses Jakarta APIs (`jakarta.servlet.*`) and requires Java 17 or later. A project written with the older `javax.servlet.*` imports must use Tomcat 9 or be migrated to Jakarta packages.
+
+#### 2. Configure the current PowerShell session
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-26.0.2"
+$env:CATALINA_HOME = "C:\tools\apache-tomcat-11"
+```
+
+Change these paths to match the installed JDK and extracted Tomcat directory. Confirm the Tomcat path:
+
+```powershell
+Test-Path "$env:CATALINA_HOME\bin\catalina.bat"
+```
+
+#### 3. Build and deploy the WAR
+
+```powershell
+cd C:\spring4\todo-servlet-jsp
+.\mvnw.cmd clean package
+
+Copy-Item `
+  ".\target\todo-servlet-jsp.war" `
+  "$env:CATALINA_HOME\webapps\"
+```
+
+Tomcat uses the WAR filename as the default context path. Therefore `todo-servlet-jsp.war` is available under `/todo-servlet-jsp`.
+
+#### 4. Configure the Todo data file and run Tomcat
+
+```powershell
+$env:CATALINA_OPTS = "-Dtodo.data.file=C:\spring4\todo-servlet-jsp\data\todos.json"
+& "$env:CATALINA_HOME\bin\catalina.bat" run
+```
+
+Open:
+
+```text
+http://localhost:8080/todo-servlet-jsp/todos
+```
+
+Use `Ctrl+C` to stop Tomcat. Running `catalina.bat run` during development is useful because errors remain visible in the terminal.
+
+If another application already uses port `8080`, stop that application or change the HTTP connector port in `conf/server.xml`, for example from `8080` to `8081`.
+
+#### External versus embedded Tomcat
+
+| Servlet/JSP project | Spring Boot project |
+| --- | --- |
+| Build a WAR | Usually build an executable JAR |
+| Install Tomcat separately | Tomcat arrives through a starter dependency |
+| Copy the WAR into `webapps` | Run the application `main()` method |
+| Configure the container yourself | Spring Boot auto-configures the container |
+| Application URL includes the WAR context by default | Application normally starts at `/` |
+
+Both approaches still use the Servlet API. Spring Boot changes how the application and container are assembled and started.
 
 ### A Request Without Spring MVC
 
@@ -498,7 +592,7 @@ The package com.student.demo is the application’s base package. Put controller
 **Windows PowerShell or Command Prompt**
 
 ```
-.\mvnw spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
 **macOS or Linux**
@@ -506,9 +600,6 @@ The package com.student.demo is the application’s base package. Put controller
 ```
 ./mvnw spring-boot:run
 ```
-
-| C |
-| --- |
 
 # Module 3 — Your First REST Endpoint
 
